@@ -38,7 +38,11 @@ describe('Global filter', function () {
         // Filter globally for 'rabbit'
         $$('.filters .filter:nth-child(1) input').sendKeys('rabbit');
         $$('.filters button[type="submit"]').click();
-        $$('.filters .glyphicon-remove').click();
+
+        browser.driver.wait(function() { 
+            return protractor.getInstance().isElementPresent($('.filters .glyphicon-remove')); 
+        }, 8000);
+        $('.filters .glyphicon-remove').click();
 
         $$('ma-datagrid-pagination .total').then(function (totalElements) {
             expect(totalElements[0].getText()).toBe('1 - 10 on 11');
