@@ -4,52 +4,9 @@
 
     var app = angular.module('myApp', ['ng-admin']);
 
-    app.directive('customPostLink', ['$location', function ($location) {
-        return {
-            restrict: 'E',
-            template: '<p class="form-control-static"><a ng-click="displayPost(entry)">View&nbsp;post</a></p>',
-            link: function ($scope) {
-                $scope.displayPost = function (entry) {
-                    var postId = entry.values.post_id;
+    app.config(function (NgAdminConfigurationProvider, RestangularProvider) {
 
-                    $location.path('/edit/posts/' + postId);
-                };
-            }
-        };
-    }]);
-
-    app.directive('otherPageLink', ['$location', function ($location) {
-        return {
-            restrict: 'E',
-            scope: true,
-            template: '<p class="form-control-static"><a ng-click="changePage()">Change page</a></p>',
-            link: function ($scope) {
-                $scope.changePage = function () {
-                    $location.path('/new-page');
-                };
-            }
-        };
-    }]);
-
-    app.controller('NewPageController', function ($scope, $location) {
-        $scope.title = 'Custom page';
-
-        $scope.goToDashboard = function () {
-            $location.path('dashboard');
-        };
-    });
-
-    app.config(function (NgAdminConfigurationProvider, Application, Entity, Field, Reference, ReferencedList, ReferenceMany, RestangularProvider, $stateProvider) {
-
-        // Create a new route for a custom page
-        $stateProvider
-            .state('new-page', {
-                parent: 'main',
-                url: '/new-page',
-                controller: 'NewPageController',
-                controllerAs: 'listController',
-                template: '<h1>{{ title }}</h1><a ng-click="goToDashboard()">Go to dashboard</a>'
-            });
+        var nga = NgAdminConfigurationProvider;
 
         function truncate(value) {
             if (!value) {
@@ -83,21 +40,21 @@
             return { params: params };
         });
 
-        var app = new Application('ng-admin backend demo') // application main title
+        var admin = nga.application('ng-admin backend demo') // application main title
             .baseApiUrl('http://localhost:3000/'); // main API endpoint
 
         // define all entities at the top to allow references between them
-        var post = new Entity('posts'); // the API endpoint for posts will be http://localhost:3000/posts/:id
+        var post = nga.entity('posts'); // the API endpoint for posts will be http://localhost:3000/posts/:id
 
-        var comment = new Entity('comments')
+        var comment = nga.entity('comments')
             .baseApiUrl('http://localhost:3000/') // The base API endpoint can be customized by entity
-            .identifier(new Field('id')); // you can optionally customize the identifier used in the api ('id' by default)
+            .identifier(nga.field('id')); // you can optionally customize the identifier used in the api ('id' by default)
 
-        var tag = new Entity('tags')
+        var tag = nga.entity('tags')
             .readOnly(); // a readOnly entity has disabled creation, edition, and deletion views
 
         // set the application entities
-        app
+        admin
             .addEntity(post)
             .addEntity(tag)
             .addEntity(comment);
@@ -111,31 +68,31 @@
             .title('Recent posts')
             .order(1) // display the post panel first in the dashboard
             .limit(5) // limit the panel to the 5 latest posts
-            .fields([new Field('title').isDetailLink(true).map(truncate)]); // fields() called with arguments add fields to the view
+            .fields([nga.field('title').isDetailLink(true).map(truncate)]); // fields() called with arguments add fields to the view
 
         post.listView()
             .title('All posts') // default title is "[Entity_name] list"
             .description('List of posts with infinite pagination') // description appears under the title
             .infinitePagination(true) // load pages as the user scrolls
             .fields([
-                new Field('id').label('ID'), // The default displayed name is the camelCase field name. label() overrides id
-                new Field('title'), // the default list field type is "string", and displays as a string
-                new Field('published_at').type('date'), // Date field type allows date formatting
-                new Field('views').type('number'),
-                new ReferenceMany('tags') // a Reference is a particular type of field that references another entity
+                nga.field('id').label('ID'), // The default displayed name is the camelCase field name. label() overrides id
+                nga.field('title'), // the default list field type is "string", and displays as a string
+                nga.field('published_at', 'date'), // Date field type allows date formatting
+                nga.field('views', 'number'),
+                nga.field('tags', 'reference_many') // a Reference is a particular type of field that references another entity
                     .targetEntity(tag) // the tag entity is defined later in this file
-                    .targetField(new Field('name')) // the field to be displayed in this list
+                    .targetField(nga.field('name')) // the field to be displayed in this list
             ])
             .listActions(['show', 'edit', 'delete']);
 
         post.creationView()
             .fields([
-                new Field('title') // the default edit field type is "string", and displays as a text input
+                nga.field('title') // the default edit field type is "string", and displays as a text input
                     .attributes({ placeholder: 'the post title' }) // you can add custom attributes, too
                     .validation({ required: true, minlength: 3, maxlength: 100 }), // add validation rules for fields
-                new Field('teaser').type('text'), // text field type translates to a textarea
-                new Field('body').type('wysiwyg'), // overriding the type allows rich text editing for the body
-                new Field('published_at').type('date') // Date field type translates to a datepicker
+                nga.field('teaser', 'text'), // text field type translates to a textarea
+                nga.field('body', 'wysiwyg'), // overriding the type allows rich text editing for the body
+                nga.field('published_at', 'date') // Date field type translates to a datepicker
             ]);
 
         post.editionView()
@@ -143,29 +100,29 @@
             .actions(['list', 'show', 'delete']) // choose which buttons appear in the top action bar. Show is disabled by default
             .fields([
                 post.creationView().fields(), // fields() without arguments returns the list of fields. That way you can reuse fields from another view to avoid repetition
-                new ReferenceMany('tags') // ReferenceMany translates to a select multiple
+                nga.field('tags', 'reference_many') // ReferenceMany translates to a select multiple
                     .targetEntity(tag)
-                    .targetField(new Field('name'))
+                    .targetField(nga.field('name'))
                     .cssClasses('col-sm-4'), // customize look and feel through CSS classes
-                new Field('views')
-                    .type('number')
+                nga.field('pictures', 'json'),
+                nga.field('views', 'number')
                     .cssClasses('col-sm-4'),
-                new ReferencedList('comments') // display list of related comments
+                nga.field('comments', 'referenced_list') // display list of related comments
                     .targetEntity(comment)
                     .targetReferenceField('post_id')
                     .targetFields([
-                        new Field('id'),
-                        new Field('body').label('Comment')
+                        nga.field('id'),
+                        nga.field('body').label('Comment')
                     ])
             ]);
 
         post.showView() // a showView displays one entry in full page - allows to display more data than in a a list
             .fields([
-                new Field('id'),
+                nga.field('id'),
                 post.editionView().fields(), // reuse fields from another view in another order
-                new Field('custom_action')
-                    .type('template')
-                    .template('<other-page-link></other-link-link>')
+                nga.field('custom_action', 'template')
+                    .label('')
+                    .template('<send-email post="entry"></send-email>')
             ]);
 
         comment.menuView()
@@ -177,37 +134,36 @@
             .order(2) // display the comment panel second in the dashboard
             .limit(5)
             .fields([
-                new Field('id'),
-                new Field('body').label('Comment').map(truncate),
-                new Field() // template fields don't need a name in dashboard view
-                    .type('template') // a field which uses a custom template
-                    .label('Actions')
-                    .template('<custom-post-link></custom-post-link>') // you can use custom directives, too
+                nga.field('id'),
+                nga.field('body').label('Comment').map(truncate),
+                nga.field(null, 'template') // template fields don't need a name in dashboard view
+                    .label('')
+                    .template('<post-link entry="entry"></post-link>') // you can use custom directives, too
             ]);
 
         comment.listView()
             .title('Comments')
             .perPage(10) // limit the number of elements displayed per page. Default is 30.
             .fields([
-                new Field('created_at')
+                nga.field('created_at', 'date')
                     .label('Posted')
-                    .type('date'),
-                new Field('author'),
-                new Field('body').map(truncate),
-                new Reference('post_id')
+                    .order(1),
+                nga.field('body').map(truncate).order(3),
+                nga.field('post_id', 'reference')
                     .label('Post')
                     .map(truncate)
                     .targetEntity(post)
-                    .targetField(new Field('title').map(truncate))
+                    .targetField(nga.field('title').map(truncate))
+                    .order(4),
+                nga.field('author').order(2)
             ])
             .filters([
-                new Field('q').type('string').label('').attributes({'placeholder': 'Global Search'}),
-                new Field('created_at')
+                nga.field('q', 'string').label('').attributes({'placeholder': 'Global Search'}),
+                nga.field('created_at', 'date')
                     .label('Posted')
-                    .type('date')
                     .attributes({'placeholder': 'Filter by date'})
                     .format('yyyy-MM-dd'),
-                new Field('today').type('boolean').map(function() {
+                nga.field('today', 'boolean').map(function() {
                     var now = new Date(),
                         year = now.getFullYear(),
                         month = now.getMonth() + 1,
@@ -217,31 +173,33 @@
                     return {
                         created_at: [year, month, day].join('-') // ?created_at=... will be appended to the API call
                     };                    
-                })
+                }),
+                nga.field('post_id', 'reference')
+                    .label('Post')
+                    .targetEntity(post)
+                    .targetField(nga.field('title'))    
             ])
             .listActions(['edit', 'delete']);
 
         comment.creationView()
             .fields([
-                new Field('created_at')
+                nga.field('created_at', 'date')
                     .label('Posted')
-                    .type('date')
                     .defaultValue(new Date()), // preset fields in creation view with defaultValue
-                new Field('author'),
-                new Field('body').type('wysiwyg'),
-                new Reference('post_id')
+                nga.field('author'),
+                nga.field('body', 'wysiwyg'),
+                nga.field('post_id', 'reference')
                     .label('Post')
                     .map(truncate)
                     .targetEntity(post)
-                    .targetField(new Field('title')),
+                    .targetField(nga.field('title')),
             ]);
 
         comment.editionView()
             .fields(comment.creationView().fields())
-            .fields([new Field()
-                .type('template')
-                .label('Actions')
-                .template('<custom-post-link></custom-post-link>') // template() can take a function or a string
+            .fields([nga.field(null, 'template')
+                .label('')
+                .template('<post-link entry="entry"></post-link>') // template() can take a function or a string
             ]);
 
         comment.deletionView()
@@ -256,24 +214,23 @@
             .order(3)
             .limit(10)
             .fields([
-                new Field('id'),
-                new Field('name'),
-                new Field('published').label('Is published ?').type('boolean')
+                nga.field('id'),
+                nga.field('name'),
+                nga.field('published', 'boolean').label('Is published ?')
             ]);
 
         tag.listView()
             .infinitePagination(false) // by default, the list view uses infinite pagination. Set to false to use regulat pagination
             .fields([
-                new Field('id').label('ID'),
-                new Field('name'),
-                new Field('published').type('boolean').cssClasses(function(entry) { // add custom CSS classes to inputs and columns
+                nga.field('id').label('ID'),
+                nga.field('name'),
+                nga.field('published', 'boolean').cssClasses(function(entry) { // add custom CSS classes to inputs and columns
                     if (entry.values.published) {
                         return 'bg-success text-center';
                     }
                     return 'bg-warning text-center';
                 }),
-                new Field('custom')
-                    .type('template')
+                nga.field('custom', 'template')
                     .label('Upper name')
                     .template('{{ entry.values.name.toUpperCase() }}')
             ])
@@ -281,10 +238,77 @@
 
         tag.showView()
             .fields([
-                new Field('name'),
-                new Field('published').type('boolean')
+                nga.field('name'),
+                nga.field('published', 'boolean')
             ]);
 
-        NgAdminConfigurationProvider.configure(app);
+        nga.configure(admin);
     });
+
+    app.directive('postLink', ['$location', function ($location) {
+        return {
+            restrict: 'E',
+            scope: { entry: '&' },
+            template: '<p class="form-control-static"><a ng-click="displayPost()">View&nbsp;post</a></p>',
+            link: function (scope) {
+                scope.displayPost = function () {
+                    $location.path('/show/posts/' + scope.entry().values.post_id);
+                };
+            }
+        };
+    }]);
+
+    app.directive('sendEmail', ['$location', function ($location) {
+        return {
+            restrict: 'E',
+            scope: { post: '&' },
+            template: '<a class="btn btn-default" ng-click="send()">Send post by email</a>',
+            link: function (scope) {
+                scope.send = function () {
+                    $location.path('/sendPost/' + scope.post().values.id);
+                };
+            }
+        };
+    }]);
+
+    // custom 'send post by email' page
+
+    function sendPostController($stateParams, notification) {
+        this.postId = $stateParams.id;
+        // notification is the service used to display notifications on the top of the screen
+        this.notification = notification;
+    };
+    sendPostController.prototype.sendEmail = function() {
+        if (this.email) {
+            this.notification.log('Email successfully sent to ' + this.email, {addnCls: 'humane-flatty-success'});
+        } else {
+            this.notification.log('Email is undefined', {addnCls: 'humane-flatty-error'});
+        }
+    }
+    sendPostController.inject = ['$stateParams', 'notification'];
+
+    var sendPostControllerTemplate =
+        '<div class="row"><div class="col-lg-12">' +
+            '<ma-view-actions><ma-back-button></ma-back-button></ma-view-actions>' +
+            '<div class="page-header">' +
+                '<h1>Send post #{{ controller.postId }} by email</h1>' +
+                '<p class="lead">You can add custom pages, too</p>' +
+            '</div>' +
+        '</div></div>' +
+        '<div class="row">' +
+            '<div class="col-lg-5"><input type="text" size="10" ng-model="controller.email" class="form-control" placeholder="name@example.com"/></div>' +
+            '<div class="col-lg-5"><a class="btn btn-default" ng-click="controller.sendEmail()">Send</a></div>' +
+        '</div>';
+
+    app.config(function ($stateProvider) {
+        $stateProvider.state('send-post', {
+            parent: 'main',
+            url: '/sendPost/:id',
+            params: { id: null },
+            controller: sendPostController,
+            controllerAs: 'controller',
+            template: sendPostControllerTemplate
+        });
+    });
+
 }());

@@ -58,13 +58,12 @@ define(function (require) {
             .then(function (values) {
                 response = values;
 
-                return self.getReferencedValues(view, response.data);
+                return self.getReferencedValues(view.getReferences(), response.data);
             }).then(function (refValues) {
                 referencedValues = refValues;
 
                 entries = view.mapEntries(response.data);
                 entries = self.fillReferencesValuesFromCollection(entries, referencedValues, fillSimpleReference);
-                entries = view.getMappedValue(entries);
 
                 return {
                     entries: entries,
@@ -99,6 +98,7 @@ define(function (require) {
             params._sortField = listView.sortField();
             params._sortDir = listView.sortDir();
         }
+
         if (filters && Object.keys(filters).length !== 0) {
             var filterFields = listView.filters(),
                 filterName;
@@ -121,14 +121,13 @@ define(function (require) {
     /**
      * Returns all References for an entity with associated values [{targetEntity.identifier: targetLabel}, ...]
      *
-     * @param {View}  view
+     * @param {Object}  A hash of Reference and ReferenceMany objects
      * @param {Array} rawValues
      *
      * @returns {promise}
      */
-    RetrieveQueries.prototype.getReferencedValues = function (view, rawValues) {
+    RetrieveQueries.prototype.getReferencedValues = function (references, rawValues) {
         var self = this,
-            references = view.getReferences(),
             calls = [],
             singleCallFilters,
             identifiers,
@@ -144,13 +143,13 @@ define(function (require) {
             referencedView = reference.getReferencedView();
 
             if (!rawValues) {
-                calls.push(self.getRawValues(referencedView, 1, false, reference.getSortFieldName(), 'ASC'));
+                calls.push(self.getRawValues(referencedView, 1, reference.filters(), reference.sortField(), reference.sortDir()));
             } else {
                 identifiers = reference.getIdentifierValues(rawValues);
                 // Check if we should retrieve values with 1 or multiple requests
                 if (reference.hasSingleApiCall()) {
                     singleCallFilters = reference.getSingleApiCall(identifiers);
-                    calls.push(self.getRawValues(referencedView, 1, singleCallFilters, reference.getSortFieldName(), 'ASC'));
+                    calls.push(self.getRawValues(referencedView, 1, singleCallFilters, reference.sortField(), reference.sortDir()));
                 } else {
                     for (k in identifiers) {
                         calls.push(self.getOne(referencedView, identifiers[k]));
@@ -199,35 +198,33 @@ define(function (require) {
      */
     RetrieveQueries.prototype.getReferencedListValues = function (view, sortField, sortDir, entityId) {
         var self = this,
-            referenceLists = view.getReferencedLists(),
+            referencedLists = view.getReferencedLists(),
             calls = [],
-            referenceList,
-            referencedView,
+            referencedList,
             filter,
             i,
             j;
 
-        for (i in referenceLists) {
-            referenceList = referenceLists[i];
+        for (i in referencedLists) {
+            referencedList = referencedLists[i];
             filter = {};
-            filter[referenceList.targetReferenceField()] = entityId;
+            filter[referencedList.targetReferenceField()] = entityId;
 
-            calls.push(self.getRawValues(referenceList.getReferencedView(), 1, filter, sortField, sortDir));
+            calls.push(self.getRawValues(referencedList.getReferencedView(), 1, filter, sortField || referencedList.sortField(), sortDir || referencedList.sortDir()));
         }
 
         return this.$q.all(calls)
             .then(function (responses) {
                 j = 0;
 
-                for (i in referenceLists) {
-                    referenceList = referenceLists[i];
-                    referencedView = referenceList.getReferencedView();
+                for (i in referencedLists) {
+                    referencedList = referencedLists[i];
 
                     // Map entries
-                    referenceList.setEntries(referencedView.mapEntries(responses[j++].data));
+                    referencedList.setEntries(referencedList.getReferencedView().mapEntries(responses[j++].data));
                 }
 
-                return referenceLists;
+                return referencedLists;
             });
     };
 
@@ -274,7 +271,7 @@ define(function (require) {
             entries = [];
             identifier = reference.getMappedValue(entry.values[referenceField], entry.values);
 
-            if (reference.type() === 'ReferenceMany') {
+            if (reference.type() === 'reference_many') {
                 for (i in identifier) {
                     id = identifier[i];
                     entries.push(choices[id]);

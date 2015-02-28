@@ -32,7 +32,7 @@ define(function (require) {
                 ]);
 
                 var choices = ref.getChoicesById();
-                expect(ref.type()).toEqual('Reference');
+                expect(ref.type()).toEqual('reference');
                 expect(choices[1]).toEqual('Suna');
                 expect(choices[2]).toEqual('Boby');
                 expect(choices[3]).toEqual('Mizute');
@@ -59,7 +59,7 @@ define(function (require) {
                     new Entry({ id: 3, human_id: 1, name: 'Mizute'})
                 ]);
 
-                expect(ref.type()).toEqual('Reference');
+                expect(ref.type()).toEqual('reference');
                 expect(ref.choices()).toEqual([
                     { value: 1, label: 'Suna'},
                     { value: 2, label: 'Boby'},
@@ -112,6 +112,14 @@ define(function (require) {
 
                 identifiers = view.getIdentifierValues([{_id: 1, tags:[1, 3]}, {_id:3, id:6, tags:[4, 3]}]);
                 expect(identifiers).toEqual(['1', '3', '4']);
+            });
+
+            it('Should not return undefined values', function () {
+                var view = new Reference('tags'),
+                    identifiers;
+
+                identifiers = view.getIdentifierValues([{_id: 1, tags:undefined}, {_id:3, id:6, tags:[3]}]);
+                expect(identifiers).toEqual(['3']);
             });
         });
 

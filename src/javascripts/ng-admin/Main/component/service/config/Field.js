@@ -5,8 +5,7 @@ define(function (require) {
 
     var angular = require('angular'),
         Configurable = require('ng-admin/Main/component/service/config/Configurable'),
-        utils = require('ng-admin/lib/utils'),
-        availableTypes = ['number', 'string', 'text', 'wysiwyg', 'email', 'date', 'boolean', 'choice', 'choices', 'password', 'template'];
+        utils = require('ng-admin/lib/utils');
 
     function defaultValueTemplate(entry) {
         return '';
@@ -20,8 +19,12 @@ define(function (require) {
         order: null,
         identifier: false,
         format: 'yyyy-MM-dd',
+        parse: function (date) {
+            return date;
+        },
         template: defaultValueTemplate,
         isDetailLink: false,
+        detailLinkRoute: 'edit',
         list: true,
         dashboard: true,
         validation: {
@@ -32,7 +35,11 @@ define(function (require) {
         choices: [],
         defaultValue: null,
         attributes: {},
-        cssClasses: ''
+        cssClasses: '',
+        uploadInformation: {
+            url: '/upload',
+            accept: '*'
+        }
     };
 
     /**
@@ -60,10 +67,6 @@ define(function (require) {
     Field.prototype.type = function (type) {
         if (arguments.length === 0) {
             return this.config.type;
-        }
-
-        if (availableTypes.indexOf(type) === -1) {
-            throw new Error('Type should be one of : "' + availableTypes.join('", "') + '" but "' + type + '" was given.');
         }
 
         this.config.type = type;
@@ -155,6 +158,14 @@ define(function (require) {
         }
         return this.isDetailLink(bool);
     }
+
+    /**
+     * only for type choice
+     */
+    Field.prototype.getLabelForChoice = function(value) {
+        var choice = this.choices().filter(function(choice) { return choice.value == value }).pop();
+        return choice ? choice.label : null;
+    };
 
     return Field;
 });

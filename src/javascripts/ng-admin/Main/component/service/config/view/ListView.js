@@ -45,39 +45,31 @@ define(function (require) {
      * @param {Array|Object|Null}
      * @returns {Array|View} The current view
      */
-    View.prototype.filters = function () {
+    View.prototype.filters = function (fields) {
         var args = Array.prototype.slice.call(arguments);
         args.unshift('filters');
         return this.smartElementGetterSetter.apply(this, args);
     };
 
     /**
-     * Map all values depending of the `map` configuration of a field
+     * Returns all filter references
      *
-     * @param {[Object]} entries
-     *
-     * @return {[Object]}
+     * @returns {Object}
      */
-    ListView.prototype.getMappedValue = function (entries) {
-        if (!entries.length) {
-            return [];
-        }
-
-        var fields = this.getFields(),
+    View.prototype.getFilterReferences = function () {
+        var results = {},
+            fields = this.config.filters,
             field,
-            i,
-            l,
-            fieldName;
+            i;
 
-        for (i = 0, l = entries.length; i < l; i++) {
-            for (fieldName in fields) {
-                field = fields[fieldName];
-
-                entries[i].values[fieldName] = field.getMappedValue(entries[i].values[fieldName], entries[i]);
+        for (i in fields) {
+            field = fields[i];
+            if (field.type() === 'reference') {
+                results[i] = field;
             }
         }
 
-        return entries;
+        return results;
     };
 
     Configurable(ListView.prototype, config);

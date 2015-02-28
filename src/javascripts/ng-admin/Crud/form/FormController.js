@@ -3,8 +3,8 @@
 define(function () {
     'use strict';
 
-    var FormController = function ($scope, $location, $filter, CreateQueries,
-                                   UpdateQueries, Validator, Configuration, progression, notification, view, entry) {
+    var FormController = function ($scope, $location, $filter, CreateQueries, UpdateQueries, Validator, Configuration,
+                                   progression, notification, view, entry) {
 
         this.$scope = $scope;
         this.$location = $location;
@@ -16,9 +16,8 @@ define(function () {
         this.notification = notification;
         this.title = view.title();
         this.description = view.description();
-        this.name = view.getFormName();
         this.actions = view.actions();
-        this.fields = view.fields();
+        this.fields = this.$filter('orderElement')(view.fields());
         this.config = Configuration();
         this.$scope.edit = this.edit.bind(this);
         this.$scope.entry = entry;
@@ -29,19 +28,21 @@ define(function () {
         $scope.$on('$destroy', this.destroy.bind(this));
     };
 
-    FormController.prototype.validate = function (form, $event) {
-        $event.preventDefault();
-        this.progression.start();
-
+    FormController.prototype.validateEntry = function () {
         var value,
+            form = this.form,
             entry = this.$scope.entry,
-            $filter = this.$filter,
             fields = this.view.getFields(),
             identifierField = this.view.getEntity().identifier(),
             mappedObject,
             field,
             i,
             object = {};
+
+        if (!form.$valid) {
+            this.notification.log('invalid form', {addnCls: 'humane-flatty-error'});
+            return false;
+        }
 
         // Inject identifier
         object[identifierField.name()] = entry.identifierValue;
@@ -50,7 +51,7 @@ define(function () {
             field = fields[i];
             value = entry.values[field.name()];
             if (field.type() === 'date') {
-                value = $filter('date')(value, field.format());
+                value = field.parse()(value);
             }
 
             object[field.name()] = value;
@@ -61,7 +62,6 @@ define(function () {
         try {
             this.Validator.validate(this.view, mappedObject);
         } catch (e) {
-            this.progression.done();
             this.notification.log(e, {addnCls: 'humane-flatty-error'});
             return false;
         }
@@ -69,29 +69,19 @@ define(function () {
         return object;
     };
 
-    /**
-     * @param {Object} form
-     * @param {$event} $event
-     */
-    FormController.prototype.submitCreation = function (form, $event) {
-        if (!form.$valid) {
-            this.notification.log('invalid form', {addnCls: 'humane-flatty-error'});
-
-            return false;
+    FormController.prototype.submitCreation = function ($event) {
+        $event.preventDefault();
+        var entry = this.validateEntry();
+        if (!entry) {
+            return;
         }
-
-        var object = this.validate(form, $event),
-            progression = this.progression,
+        var progression = this.progression,
             notification = this.notification,
             entity = this.entity,
             $location = this.$location;
-
-        if (!object) {
-            return;
-        }
-
+        progression.start();
         this.CreateQueries
-            .createOne(this.view, object)
+            .createOne(this.view, entry)
             .then(function (response) {
                 progression.done();
                 notification.log('Changes successfully saved.', {addnCls: 'humane-flatty-success'});
@@ -99,33 +89,17 @@ define(function () {
             }, this.handleError.bind(this));
     };
 
-    FormController.prototype.getValidationClassForField = function(input) {
-        if (typeof input === 'undefined') {
-            // non-editable fields, or template fields, may not have a corresponding input
+    FormController.prototype.submitEdition = function ($event) {
+        $event.preventDefault();
+        var entry = this.validateEntry();
+        if (!entry) {
             return;
         }
-        if (!input.$dirty) {
-            // do not fidsplay validation status unless the input has been altered
-            return;
-        }
-        return input.$valid ? 'has-success' : 'has-error';
-    }
-
-    /**
-     * @param {Object} form
-     * @param {$event} $event
-     */
-    FormController.prototype.submitEdition = function (form, $event) {
         var progression = this.progression,
-            notification = this.notification,
-            object = this.validate(form, $event);
-
-        if (!object) {
-            return;
-        }
-
+            notification = this.notification;
+        progression.start();
         this.UpdateQueries
-            .updateOne(this.view, object)
+            .updateOne(this.view, entry)
             .then(function () {
                 progression.done();
                 notification.log('Changes successfully saved.', {addnCls: 'humane-flatty-success'});
